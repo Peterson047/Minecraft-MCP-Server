@@ -1,0 +1,106 @@
+commands_dict = {
+    "/help": {
+        "description": "Displays all available commands or information about a specific command.",
+        "example": "/help weather"
+    },
+    "/give": {
+        "description": "Gives an item to a player. If omitted, gives a full stack.",
+        "example": "/give iVestri iron_pickaxe 1"
+    },
+    "/weather": {
+        "description": "Changes the world's weather (clear, rain, thunder).",
+        "example": "/weather clear"
+    },
+    "/gamemode": {
+        "description": "Changes a player's game mode (survival, creative, spectator, adventure).",
+        "example": "/gamemode creative"
+    },
+    "/summon": {
+        "description": "Spawns a mob or object at the player's location.",
+        "example": "/summon villager"
+    },
+    "/tp": {
+        "description": "Teleports a player to another player or coordinates.",
+        "example": "/tp iVestri smattox"
+    },
+    "/time set": {
+        "description": "Sets the world time (day, night, or ticks).",
+        "example": "/time set day"
+    },
+    "/xp": {
+        "description": "Grants experience to a player.",
+        "example": "/xp 1000 iVestri"
+    },
+    "/locatebiome": {
+        "description": "Finds the nearest biome of a specific type.",
+        "example": "/locatebiome plains"
+    },
+    "/msg": {
+        "description": "Sends a private message to another player.",
+        "example": "/msg iVestri hello!"
+    },
+    "/ops": {
+        "description": "Lists all players with operator privileges.",
+        "example": "/ops"
+    },
+    "/perf": {
+        "description": "Runs debugging for 10 seconds, generating performance logs.",
+        "example": "/perf"
+    },
+    "/save-all": {
+        "description": "Automatically backs up the world (saves current state).",
+        "example": "/save-all"
+    },
+    "/stop": {
+        "description": "Initiates a safe server shutdown.",
+        "example": "/stop"
+    },
+    "/restart": {
+        "description": "Restarts the server after shutting down.",
+        "example": "/restart"
+    },
+    "/whitelist": {
+        "description": "Manages the server's whitelist (on/off/add/remove/list).",
+        "example": "/whitelist add Daltondorf"
+    },
+    "/gamerule": {
+        "description": "Sets world rules (e.g., doDaylightCycle false).",
+        "example": "/gamerule doDaylightCycle false"
+    },
+    "/ban": {
+        "description": "Adds a player to the ban list.",
+        "example": "/ban notch"
+    },
+    "/ban-ip": {
+        "description": "Bans an IP address.",
+        "example": "/ban-ip 192.168.0.5"
+    },
+    "/pardon": {
+        "description": "Removes a player from the ban list.",
+        "example": "/pardon iVestri"
+    },
+    "/banlist": {
+        "description": "Shows all banned players.",
+        "example": "/banlist"
+    },
+    "/clear": {
+        "description": "Clears a player's inventory.",
+        "example": "/clear iVestri"
+    },
+    "/op": {
+        "description": "Grants operator powers to a player.",
+        "example": "/op iVestri"
+    },
+    "/deop": {
+        "description": "Revokes operator privileges from a player.",
+        "example": "/deop iVestri"
+    },
+    "/difficulty": {
+        "description": "Sets the server difficulty (peaceful, easy, normal, hard).",
+        "example": "/difficulty peaceful"
+    },
+    "/seed": {
+        "description": "Shows the world seed.",
+        "example": "/seed"
+    }
+}

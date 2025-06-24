@@ -1,0 +1,2 @@
+[console_scripts]
+mcrcon = mcrcon:mcrcon_cli
