@@ -102,3 +102,4 @@ def process_chat_command(player_name: str, chat_command_text: str) -> str:
 
 if __name__ == "__main__":
     mcp.run()
+     
