@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncGenerator, Iterator, Mapping
+import typing
 from http import cookies as http_cookies
-from typing import TYPE_CHECKING, Any, NoReturn, cast
 
 import anyio
 
@@ -13,7 +12,7 @@ from starlette.exceptions import HTTPException
 from starlette.formparsers import FormParser, MultiPartException, MultiPartParser
 from starlette.types import Message, Receive, Scope, Send
 
-if TYPE_CHECKING:
+if typing.TYPE_CHECKING:
     from python_multipart.multipart import parse_options_header
 
     from starlette.applications import Starlette
@@ -68,7 +67,7 @@ class ClientDisconnect(Exception):
     pass
 
 
-class HTTPConnection(Mapping[str, Any]):
+class HTTPConnection(typing.Mapping[str, typing.Any]):
     """
     A base class for incoming HTTP connections, that is used to provide
     any functionality that is common to both `Request` and `WebSocket`.
@@ -78,10 +77,10 @@ class HTTPConnection(Mapping[str, Any]):
         assert scope["type"] in ("http", "websocket")
         self.scope = scope
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> typing.Any:
         return self.scope[key]
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> typing.Iterator[str]:
         return iter(self.scope)
 
     def __len__(self) -> int:
@@ -94,7 +93,7 @@ class HTTPConnection(Mapping[str, Any]):
     __hash__ = object.__hash__
 
     @property
-    def app(self) -> Any:
+    def app(self) -> typing.Any:
         return self.scope["app"]
 
     @property
@@ -133,7 +132,7 @@ class HTTPConnection(Mapping[str, Any]):
         return self._query_params
 
     @property
-    def path_params(self) -> dict[str, Any]:
+    def path_params(self) -> dict[str, typing.Any]:
         return self.scope.get("path_params", {})
 
     @property
@@ -156,17 +155,17 @@ class HTTPConnection(Mapping[str, Any]):
         return None
 
     @property
-    def session(self) -> dict[str, Any]:
+    def session(self) -> dict[str, typing.Any]:
         assert "session" in self.scope, "SessionMiddleware must be installed to access request.session"
         return self.scope["session"]  # type: ignore[no-any-return]
 
     @property
-    def auth(self) -> Any:
+    def auth(self) -> typing.Any:
         assert "auth" in self.scope, "AuthenticationMiddleware must be installed to access request.auth"
         return self.scope["auth"]
 
     @property
-    def user(self) -> Any:
+    def user(self) -> typing.Any:
         assert "user" in self.scope, "AuthenticationMiddleware must be installed to access request.user"
         return self.scope["user"]
 
@@ -180,7 +179,7 @@ class HTTPConnection(Mapping[str, Any]):
             self._state = State(self.scope["state"])
         return self._state
 
-    def url_for(self, name: str, /, **path_params: Any) -> URL:
+    def url_for(self, name: str, /, **path_params: typing.Any) -> URL:
         url_path_provider: Router | Starlette | None = self.scope.get("router") or self.scope.get("app")
         if url_path_provider is None:
             raise RuntimeError("The `url_for` method can only be used inside a Starlette application or with a router.")
@@ -188,11 +187,11 @@ class HTTPConnection(Mapping[str, Any]):
         return url_path.make_absolute_url(base_url=self.base_url)
 
 
-async def empty_receive() -> NoReturn:
+async def empty_receive() -> typing.NoReturn:
     raise RuntimeError("Receive channel has not been made available")
 
 
-async def empty_send(message: Message) -> NoReturn:
+async def empty_send(message: Message) -> typing.NoReturn:
     raise RuntimeError("Send channel has not been made available")
 
 
@@ -210,13 +209,13 @@ class Request(HTTPConnection):
 
     @property
     def method(self) -> str:
-        return cast(str, self.scope["method"])
+        return typing.cast(str, self.scope["method"])
 
     @property
     def receive(self) -> Receive:
         return self._receive
 
-    async def stream(self) -> AsyncGenerator[bytes, None]:
+    async def stream(self) -> typing.AsyncGenerator[bytes, None]:
         if hasattr(self, "_body"):
             yield self._body
             yield b""
@@ -244,7 +243,7 @@ class Request(HTTPConnection):
             self._body = b"".join(chunks)
         return self._body
 
-    async def json(self) -> Any:
+    async def json(self) -> typing.Any:
         if not hasattr(self, "_json"):  # pragma: no branch
             body = await self.body()
             self._json = json.loads(body)

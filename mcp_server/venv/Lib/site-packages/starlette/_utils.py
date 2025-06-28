@@ -3,16 +3,15 @@ from __future__ import annotations
 import functools
 import inspect
 import sys
-from collections.abc import Awaitable, Generator
-from contextlib import AbstractAsyncContextManager, contextmanager
-from typing import Any, Callable, Generic, Protocol, TypeVar, overload
+import typing
+from contextlib import contextmanager
 
 from starlette.types import Scope
 
-if sys.version_info >= (3, 13):  # pragma: no cover
-    from typing import TypeIs
+if sys.version_info >= (3, 10):  # pragma: no cover
+    from typing import TypeGuard
 else:  # pragma: no cover
-    from typing_extensions import TypeIs
+    from typing_extensions import TypeGuard
 
 has_exceptiongroups = True
 if sys.version_info < (3, 11):  # pragma: no cover
@@ -21,58 +20,58 @@ if sys.version_info < (3, 11):  # pragma: no cover
     except ImportError:
         has_exceptiongroups = False
 
-T = TypeVar("T")
-AwaitableCallable = Callable[..., Awaitable[T]]
+T = typing.TypeVar("T")
+AwaitableCallable = typing.Callable[..., typing.Awaitable[T]]
 
 
-@overload
-def is_async_callable(obj: AwaitableCallable[T]) -> TypeIs[AwaitableCallable[T]]: ...
+@typing.overload
+def is_async_callable(obj: AwaitableCallable[T]) -> TypeGuard[AwaitableCallable[T]]: ...
 
 
-@overload
-def is_async_callable(obj: Any) -> TypeIs[AwaitableCallable[Any]]: ...
+@typing.overload
+def is_async_callable(obj: typing.Any) -> TypeGuard[AwaitableCallable[typing.Any]]: ...
 
 
-def is_async_callable(obj: Any) -> Any:
+def is_async_callable(obj: typing.Any) -> typing.Any:
     while isinstance(obj, functools.partial):
         obj = obj.func
 
     return inspect.iscoroutinefunction(obj) or (callable(obj) and inspect.iscoroutinefunction(obj.__call__))
 
 
-T_co = TypeVar("T_co", covariant=True)
+T_co = typing.TypeVar("T_co", covariant=True)
 
 
-class AwaitableOrContextManager(Awaitable[T_co], AbstractAsyncContextManager[T_co], Protocol[T_co]): ...
+class AwaitableOrContextManager(typing.Awaitable[T_co], typing.AsyncContextManager[T_co], typing.Protocol[T_co]): ...
 
 
-class SupportsAsyncClose(Protocol):
+class SupportsAsyncClose(typing.Protocol):
     async def close(self) -> None: ...  # pragma: no cover
 
 
-SupportsAsyncCloseType = TypeVar("SupportsAsyncCloseType", bound=SupportsAsyncClose, covariant=False)
+SupportsAsyncCloseType = typing.TypeVar("SupportsAsyncCloseType", bound=SupportsAsyncClose, covariant=False)
 
 
-class AwaitableOrContextManagerWrapper(Generic[SupportsAsyncCloseType]):
+class AwaitableOrContextManagerWrapper(typing.Generic[SupportsAsyncCloseType]):
     __slots__ = ("aw", "entered")
 
-    def __init__(self, aw: Awaitable[SupportsAsyncCloseType]) -> None:
+    def __init__(self, aw: typing.Awaitable[SupportsAsyncCloseType]) -> None:
         self.aw = aw
 
-    def __await__(self) -> Generator[Any, None, SupportsAsyncCloseType]:
+    def __await__(self) -> typing.Generator[typing.Any, None, SupportsAsyncCloseType]:
         return self.aw.__await__()
 
     async def __aenter__(self) -> SupportsAsyncCloseType:
         self.entered = await self.aw
         return self.entered
 
-    async def __aexit__(self, *args: Any) -> None | bool:
+    async def __aexit__(self, *args: typing.Any) -> None | bool:
         await self.entered.close()
         return None
 
 
 @contextmanager
-def collapse_excgroups() -> Generator[None, None, None]:
+def collapse_excgroups() -> typing.Generator[None, None, None]:
     try:
         yield
     except BaseException as exc:

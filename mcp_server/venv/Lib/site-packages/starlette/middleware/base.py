@@ -1,20 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, AsyncIterable, Awaitable, Mapping, MutableMapping
-from typing import Any, Callable, TypeVar, Union
+import typing
 
 import anyio
 
 from starlette._utils import collapse_excgroups
 from starlette.requests import ClientDisconnect, Request
-from starlette.responses import Response
+from starlette.responses import AsyncContentStream, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-RequestResponseEndpoint = Callable[[Request], Awaitable[Response]]
-DispatchFunction = Callable[[Request, RequestResponseEndpoint], Awaitable[Response]]
-BodyStreamGenerator = AsyncGenerator[Union[bytes, MutableMapping[str, Any]], None]
-AsyncContentStream = AsyncIterable[Union[str, bytes, memoryview, MutableMapping[str, Any]]]
-T = TypeVar("T")
+RequestResponseEndpoint = typing.Callable[[Request], typing.Awaitable[Response]]
+DispatchFunction = typing.Callable[[Request, RequestResponseEndpoint], typing.Awaitable[Response]]
+T = typing.TypeVar("T")
 
 
 class _CachedRequest(Request):
@@ -116,7 +113,7 @@ class BaseHTTPMiddleware:
 
                 async with anyio.create_task_group() as task_group:
 
-                    async def wrap(func: Callable[[], Awaitable[T]]) -> T:
+                    async def wrap(func: typing.Callable[[], typing.Awaitable[T]]) -> T:
                         result = await func()
                         task_group.cancel_scope.cancel()
                         return result
@@ -161,12 +158,9 @@ class BaseHTTPMiddleware:
 
             assert message["type"] == "http.response.start"
 
-            async def body_stream() -> BodyStreamGenerator:
+            async def body_stream() -> typing.AsyncGenerator[bytes, None]:
                 async for message in recv_stream:
-                    if message["type"] == "http.response.pathsend":
-                        yield message
-                        break
-                    assert message["type"] == "http.response.body", f"Unexpected message: {message}"
+                    assert message["type"] == "http.response.body"
                     body = message.get("body", b"")
                     if body:
                         yield body
@@ -197,9 +191,9 @@ class _StreamingResponse(Response):
         self,
         content: AsyncContentStream,
         status_code: int = 200,
-        headers: Mapping[str, str] | None = None,
+        headers: typing.Mapping[str, str] | None = None,
         media_type: str | None = None,
-        info: Mapping[str, Any] | None = None,
+        info: typing.Mapping[str, typing.Any] | None = None,
     ) -> None:
         self.info = info
         self.body_iterator = content
@@ -219,17 +213,10 @@ class _StreamingResponse(Response):
             }
         )
 
-        should_close_body = True
         async for chunk in self.body_iterator:
-            if isinstance(chunk, dict):
-                # We got an ASGI message which is not response body (eg: pathsend)
-                should_close_body = False
-                await send(chunk)
-                continue
             await send({"type": "http.response.body", "body": chunk, "more_body": True})
 
-        if should_close_body:
-            await send({"type": "http.response.body", "body": b"", "more_body": False})
+        await send({"type": "http.response.body", "body": b"", "more_body": False})
 
         if self.background:
             await self.background()

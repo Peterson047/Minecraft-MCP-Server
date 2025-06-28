@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import typing
 import warnings
-from collections.abc import Mapping, Sequence
 from os import PathLike
-from typing import Any, Callable, cast, overload
 
 from starlette.background import BackgroundTask
 from starlette.datastructures import URL
@@ -29,10 +28,10 @@ except ModuleNotFoundError:  # pragma: no cover
 class _TemplateResponse(HTMLResponse):
     def __init__(
         self,
-        template: Any,
-        context: dict[str, Any],
+        template: typing.Any,
+        context: dict[str, typing.Any],
         status_code: int = 200,
-        headers: Mapping[str, str] | None = None,
+        headers: typing.Mapping[str, str] | None = None,
         media_type: str | None = None,
         background: BackgroundTask | None = None,
     ):
@@ -64,30 +63,30 @@ class Jinja2Templates:
     return templates.TemplateResponse("index.html", {"request": request})
     """
 
-    @overload
+    @typing.overload
     def __init__(
         self,
-        directory: str | PathLike[str] | Sequence[str | PathLike[str]],
+        directory: str | PathLike[str] | typing.Sequence[str | PathLike[str]],
         *,
-        context_processors: list[Callable[[Request], dict[str, Any]]] | None = None,
-        **env_options: Any,
+        context_processors: list[typing.Callable[[Request], dict[str, typing.Any]]] | None = None,
+        **env_options: typing.Any,
     ) -> None: ...
 
-    @overload
+    @typing.overload
     def __init__(
         self,
         *,
         env: jinja2.Environment,
-        context_processors: list[Callable[[Request], dict[str, Any]]] | None = None,
+        context_processors: list[typing.Callable[[Request], dict[str, typing.Any]]] | None = None,
     ) -> None: ...
 
     def __init__(
         self,
-        directory: str | PathLike[str] | Sequence[str | PathLike[str]] | None = None,
+        directory: str | PathLike[str] | typing.Sequence[str | PathLike[str]] | None = None,
         *,
-        context_processors: list[Callable[[Request], dict[str, Any]]] | None = None,
+        context_processors: list[typing.Callable[[Request], dict[str, typing.Any]]] | None = None,
         env: jinja2.Environment | None = None,
-        **env_options: Any,
+        **env_options: typing.Any,
     ) -> None:
         if env_options:
             warnings.warn(
@@ -106,8 +105,8 @@ class Jinja2Templates:
 
     def _create_env(
         self,
-        directory: str | PathLike[str] | Sequence[str | PathLike[str]],
-        **env_options: Any,
+        directory: str | PathLike[str] | typing.Sequence[str | PathLike[str]],
+        **env_options: typing.Any,
     ) -> jinja2.Environment:
         loader = jinja2.FileSystemLoader(directory)
         env_options.setdefault("loader", loader)
@@ -118,10 +117,10 @@ class Jinja2Templates:
     def _setup_env_defaults(self, env: jinja2.Environment) -> None:
         @pass_context
         def url_for(
-            context: dict[str, Any],
+            context: dict[str, typing.Any],
             name: str,
             /,
-            **path_params: Any,
+            **path_params: typing.Any,
         ) -> URL:
             request: Request = context["request"]
             return request.url_for(name, **path_params)
@@ -131,32 +130,32 @@ class Jinja2Templates:
     def get_template(self, name: str) -> jinja2.Template:
         return self.env.get_template(name)
 
-    @overload
+    @typing.overload
     def TemplateResponse(
         self,
         request: Request,
         name: str,
-        context: dict[str, Any] | None = None,
+        context: dict[str, typing.Any] | None = None,
         status_code: int = 200,
-        headers: Mapping[str, str] | None = None,
+        headers: typing.Mapping[str, str] | None = None,
         media_type: str | None = None,
         background: BackgroundTask | None = None,
     ) -> _TemplateResponse: ...
 
-    @overload
+    @typing.overload
     def TemplateResponse(
         self,
         name: str,
-        context: dict[str, Any] | None = None,
+        context: dict[str, typing.Any] | None = None,
         status_code: int = 200,
-        headers: Mapping[str, str] | None = None,
+        headers: typing.Mapping[str, str] | None = None,
         media_type: str | None = None,
         background: BackgroundTask | None = None,
     ) -> _TemplateResponse:
         # Deprecated usage
         ...
 
-    def TemplateResponse(self, *args: Any, **kwargs: Any) -> _TemplateResponse:
+    def TemplateResponse(self, *args: typing.Any, **kwargs: typing.Any) -> _TemplateResponse:
         if args:
             if isinstance(args[0], str):  # the first argument is template name (old style)
                 warnings.warn(
@@ -196,7 +195,7 @@ class Jinja2Templates:
 
             context = kwargs.get("context", {})
             request = kwargs.get("request", context.get("request"))
-            name = cast(str, kwargs["name"])
+            name = typing.cast(str, kwargs["name"])
             status_code = kwargs.get("status_code", 200)
             headers = kwargs.get("headers")
             media_type = kwargs.get("media_type")

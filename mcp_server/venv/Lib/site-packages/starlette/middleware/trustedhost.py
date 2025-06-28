@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+import typing
 
 from starlette.datastructures import URL, Headers
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
@@ -13,7 +13,7 @@ class TrustedHostMiddleware:
     def __init__(
         self,
         app: ASGIApp,
-        allowed_hosts: Sequence[str] | None = None,
+        allowed_hosts: typing.Sequence[str] | None = None,
         www_redirect: bool = True,
     ) -> None:
         if allowed_hosts is None:
