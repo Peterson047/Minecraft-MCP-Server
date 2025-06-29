@@ -1,95 +1,132 @@
-# Arquivo: mcp_chat_client.py
-import time
-import re
-import requests
+# File: mcp_chat_client.py
+
+import asyncio
 import os
+import re
+import time
+import json
+from dotenv import load_dotenv
+from typing import Optional
+from contextlib import AsyncExitStack
 
-# --- CONFIGURAÇÕES ---
-# O caminho completo para o arquivo de log do seu servidor Minecraft
-# Exemplo: C:\Users\Peter\Desktop\mineserver\logs\latest.log
-MINECRAFT_SERVER_LOG_PATH = "C:\\Users\\Peter\\Desktop\\mineserver\\logs\\latest.log" # <<<<<<<< ATUALIZE ESTE CAMINHO
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+from google import genai
 
-# O URL do seu servidor MCP (FastAPI)
-MCP_SERVER_URL = "http://localhost:8000/mcp/run"
-# --- FIM DAS CONFIGURAÇÕES ---
+# Load variables from .env file
+load_dotenv()
 
-def tail_f(filepath):
-    """
-    Simula o comando 'tail -f' para ler novas linhas de um arquivo de log.
-    Permanece aberto e lendo continuamente.
-    """
-    if not os.path.exists(os.path.dirname(filepath)):
-        print(f"Erro: O diretório do log não foi encontrado: {os.path.dirname(filepath)}")
-        return
+# Path to the Minecraft log file
+LOG_PATH = os.getenv("MINECRAFT_LOG_PATH", "PATH_TO_YOUR_MINECRAFT_LOG_FILE")
 
-    # Espera até que o arquivo de log exista (útil se o servidor Minecraft ainda não iniciou)
-    while not os.path.exists(filepath):
-        print(f"Aguardando o arquivo de log do Minecraft em: {filepath}...")
-        time.sleep(5)
+# Path to the MCP server script (server.py)
+MCP_SERVER_PATH = os.getenv("MCP_SERVER_PATH")
+if not MCP_SERVER_PATH or not os.path.exists(MCP_SERVER_PATH):
+    raise ValueError("❌ Error: Invalid or undefined MCP_SERVER_PATH")
 
-    print(f"Monitorando o log do Minecraft em: {filepath}")
-    with open(filepath, "r", encoding="utf-8") as f:
-        # Pula para o final do arquivo para ler apenas novas linhas a partir de agora
-        f.seek(0, 2)
-        while True:
-            line = f.readline()
-            if not line:
-                time.sleep(0.1) # Pequeno atraso para evitar consumo excessivo de CPU
-                continue
-            yield line
+# Gemini API key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError("❌ Error: GEMINI_API_KEY variable not found in .env")
 
-def process_log_line(line):
-    """
-    Processa uma linha do log para extrair mensagens de chat de jogadores.
-    Retorna (player_name, chat_message) se for uma mensagem de chat, senão None.
-    Exemplo de linha de chat: "[13:30:00 INFO]: <PlayerName> Hello world!"
-    """
-    # Regex para capturar o timestamp, o nível de log (INFO) e, mais importante,
-    # o nome do jogador e o conteúdo da mensagem de chat.
-    match = re.match(r'^\[\d{2}:\d{2}:\d{2} INFO\]: <([^>]+)> (.*)$', line)
-    if match:
-        player_name = match.group(1).strip()
-        chat_message = match.group(2).strip()
-        return player_name, chat_message
-    return None
 
-def send_to_mcp_server(tool_name: str, parameters: dict):
-    """
-    Envia uma requisição POST JSON para o servidor MCP.
-    """
-    payload = {
-        "tool_name": tool_name,
-        "parameters": parameters
-    }
+class MCPChatClient:
+    def __init__(self):
+        self.session: Optional[ClientSession] = None
+        self.exit_stack = AsyncExitStack()
+        self.client = genai.Client(api_key=GEMINI_API_KEY)
+
+    async def connect(self, server_path: str):
+        """Connects to the MCP server via stdio"""
+        stdio_ctx = stdio_client(
+            StdioServerParameters(command="python", args=[server_path])
+        )
+        stdio = await self.exit_stack.enter_async_context(stdio_ctx)
+        self.stdio, self.write = stdio
+
+        self.session = await self.exit_stack.enter_async_context(
+            ClientSession(self.stdio, self.write)
+        )
+        await self.session.initialize()
+        print("✅ Connected to MCP")
+
+    async def handle_chat_command(self, player: str, message: str):
+        """Processes the player’s message and executes it via Gemini + MCP"""
+        tools = (await self.session.list_tools()).tools
+        prompt = f"""Minecraft player message: "{message}"
+The goal is to generate the correct Minecraft command for this intention.
+Respond only with the command, nothing else.
+
+Available commands:
+{json.dumps([{t.name: t.description} for t in tools], indent=2)}
+
+Return a valid command (e.g., /time set day)
+"""
+
+        print(f"💬 [{player}]: {message}")
+        print("🤖 Querying Gemini...")
+
+        response = self.client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=[prompt],
+            config=genai.types.GenerateContentConfig(response_mime_type="text/plain")
+        )
+
+        command = response.candidates[0].content.parts[0].text.strip()
+        print(f"✅ Command generated: {command}")
+
+        result = await self.session.call_tool("run_command", {"command": command})
+        response_texts = [c.text for c in result.content if hasattr(c, "text")]
+        print(f"🎮 Server response: {' '.join(response_texts)}")
+
+    def process_log_line(self, line: str):
+        """
+        Processes a log line to extract player chat messages.
+        Returns (player_name, chat_message) if it's a chat message, otherwise None.
+        """
+        match = re.match(r'^\[\d{2}:\d{2}:\d{2}\] \[.*?/INFO\]: <([^>]+)> (.*)$', line)
+        if match:
+            player_name = match.group(1).strip()
+            chat_message = match.group(2).strip()
+            return player_name, chat_message
+        return None
+
+    async def monitor_log(self):
+        """Monitors the Minecraft log and sends commands with @ai"""
+        print(f"🟡 Monitoring Minecraft log: {LOG_PATH}")
+        while not os.path.exists(LOG_PATH):
+            print(f"⏳ Waiting for log file: {LOG_PATH}")
+            time.sleep(3)
+
+        with open(LOG_PATH, "r", encoding="utf-8") as f:
+            f.seek(0, 2)  # Go to the end of the file
+            while True:
+                line = f.readline()
+                if not line:
+                    await asyncio.sleep(0.1)
+                    continue
+                chat = self.process_log_line(line)
+                if chat:
+                    player, message = chat
+                    if message.lower().startswith("@ai"):
+                        query = message[3:].strip()
+                        print(f"🚨 Command detected from {player}: {query}")
+                        await self.handle_chat_command(player, query)
+
+    async def cleanup(self):
+        await self.exit_stack.aclose()
+
+
+async def main():
+    client = MCPChatClient()
     try:
-        response = requests.post(MCP_SERVER_URL, json=payload)
-        response.raise_for_status() # Lança exceção para erros HTTP (4xx ou 5xx)
-        print(f"Requisição MCP para '{tool_name}' enviada com sucesso. Resposta: {response.json()}")
-    except requests.exceptions.ConnectionError:
-        print(f"Erro: Não foi possível conectar ao servidor MCP em {MCP_SERVER_URL}. Certifique-se de que ele está rodando.")
-    except requests.exceptions.HTTPError as e:
-        print(f"Erro HTTP ao enviar requisição MCP: {e}. Resposta: {e.response.text}")
+        await client.connect(MCP_SERVER_PATH)
+        await client.monitor_log()
     except Exception as e:
-        print(f"Ocorreu um erro inesperado ao enviar para o MCP: {e}")
+        print(f"❌ Error: {e}")
+    finally:
+        await client.cleanup()
+
 
 if __name__ == "__main__":
-    for line in tail_f(MINECRAFT_SERVER_LOG_PATH):
-        chat_data = process_log_line(line)
-        if chat_data:
-            player_name, chat_message = chat_data
-            print(f"[LOG] Chat detectado de {player_name}: '{chat_message}'")
-
-            # Verifica se a mensagem começa com "@ai" (insensível a maiúsculas/minúsculas)
-            if chat_message.lower().startswith("@ai"):
-                # Extrai a parte do comando após "@ai"
-                query = chat_message[len("@ai"):].strip()
-                print(f"[CLIENT] Comando @ai detectado: '{query}' de {player_name}. Enviando para o MCP...")
-
-                # Envia o comando para a nova tool no servidor MCP
-                send_to_mcp_server(
-                    tool_name="process_chat_command", # Nome da nova ferramenta no main.py
-                    parameters={
-                        "player_name": player_name,
-                        "chat_command_text": query # Apenas a query, sem o "@ai"
-                    }
-                )
+    asyncio.run(main())
