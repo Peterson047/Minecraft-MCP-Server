@@ -17,10 +17,15 @@ Python MCP Server to control a Minecraft server via RCON, using FastMCP.
 
 ```
 mcp_server/
-├── commands.json         # Commands dictionary and examples  
-├── server.py             # Main MCP server  
-├── commands.json         # Minecraft commands for context  
-└── (venv/)               # Virtual environment (optional)  
+├── __pycache__/
+├── .env                   # Environment variables for Gemini and paths
+├── commands.json          # Commands dictionary and examples  
+├── mcp_chat_client.py     # NEW: Client that listens to @ai messages from chat
+├── server.py              # Main MCP server  
+├── .gitattributes
+├── .gitignore
+├── readme.md
+└── requirements.txt
 ```
 
 ---
@@ -30,7 +35,7 @@ mcp_server/
 1. Clone the repository:
 
    ```bash
-     cd Minecraft-MCP-Server/mcp_server
+   cd Minecraft-MCP-Server/mcp_server
    ```
 
 2. Create an environment and install dependencies:
@@ -38,7 +43,7 @@ mcp_server/
    ```bash
    python -m venv venv
    venv\Scripts\activate
-   pip install mcp[cli] mcrcon
+   pip install -r requirements.txt
    ```
 
 ---
@@ -55,18 +60,42 @@ rcon.password=minemcp
 rcon.port=25575
 ```
 
+Create a `.env` file like this:
+
+```
+MINECRAFT_LOG_PATH=C:\Users\YourUser\Desktop\mineserver\logs\latest.log
+MCP_SERVER_PATH=mcp_server/server.py
+GEMINI_API_KEY=your_gemini_api_key
+```
+
 ---
 
-## 🚀 Running
+## 🚀 Running the MCP Server
 
 Activate the virtual environment and run:
 
 ```bash
 venv\Scripts\activate
-python server.py
+python mcp_server/server.py
 ```
 
 Monkey patch: starts MCP server in STDIO by default ([apidog.com][1], [reddit.com][2], [github.com][3])
+
+---
+
+## 💬 Running the Chat Client (`@ai`)
+
+After starting the server, in a new terminal, run the chat client:
+
+```bash
+venv\Scripts\activate
+python mcp_server/mcp_chat_client.py
+```
+
+This script monitors the Minecraft server log and listens for player chat messages that start with `@ai`. It sends the message to the Gemini API and executes the resulting command on the server via MCP.
+
+> ⚠️ **Important**: The server must be started before running the client.  
+> Current version has a known memory overflow bug if the client starts before the server.
 
 ---
 
@@ -120,8 +149,8 @@ asyncio.run(test())
 
 ## 📚 References
 
-* \[FastMCP v2 – Sample README] ([pypi.org][6])
-* \[mcrcon – Python RCON client] ([pypi.org][6])
+* [FastMCP v2 – Sample README] ([pypi.org][6])
+* [mcrcon – Python RCON client] ([pypi.org][6])
 
 ---
 
@@ -136,11 +165,8 @@ asyncio.run(test())
 **Ready to make your server smart!** 🚀
 
 [1]: https://apidog.com/blog/fastmcp/?utm_source=chatgpt.com "A Beginner's Guide to Use FastMCP - Apidog"
-[2]: https://www.reddit.com/r/mcp/comments/1hrq0au/how_to_build_mcp_servers_with_fastmcp_stepbystep/?utm_source=chatgpt.com "How to Build MCP Servers with FastMCP: Step-by-Step Tutorial for ..."
-[3]: https://github.com/GanonUchiha/My-FastMCP-Example?utm_source=chatgpt.com "My example of setting up a MCP server - GitHub"
-[4]: https://medium.com/data-engineering-with-dremio/building-a-basic-mcp-server-with-python-4c34c41031ed?utm_source=chatgpt.com "Building a Basic MCP Server with Python | by Alex Merced - Medium"
-[5]: https://github.com/jlowin/fastmcp?utm_source=chatgpt.com "jlowin/fastmcp: The fast, Pythonic way to build MCP servers and clients"
-[6]: https://pypi.org/project/mcrcon/?utm_source=chatgpt.com "mcrcon - PyPI"
-
----
-
+[2]: https://www.reddit.com/r/mcp/comments/1hrq0au/how_to_build_mcp_servers_with_fastmcp_stepbystep/?utm_source=chatgpt.com
+[3]: https://github.com/GanonUchiha/My-FastMCP-Example?utm_source=chatgpt.com
+[4]: https://medium.com/data-engineering-with-dremio/building-a-basic-mcp-server-with-python-4c34c41031ed?utm_source=chatgpt.com
+[5]: https://github.com/jlowin/fastmcp?utm_source=chatgpt.com
+[6]: https://pypi.org/project/mcrcon/?utm_source=chatgpt.com

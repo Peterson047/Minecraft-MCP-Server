@@ -1,4 +1,4 @@
-commands_dict = {
+{
     "/help": {
         "description": "Displays all available commands or information about a specific command.",
         "example": "/help weather"
