@@ -15,7 +15,7 @@ from google import genai
 load_dotenv()
 
 # Path to the Minecraft log file
-LOG_PATH = os.getenv("MINECRAFT_LOG_PATH", "PATH_TO_SERVER\logs\\latest.log")
+LOG_PATH = os.getenv("MINECRAFT_LOG_PATH")
 
 # Path to the MCP server script (server.py)
 MCP_SERVER_PATH = os.getenv("MCP_SERVER_PATH")
@@ -80,30 +80,44 @@ class MCPChatClient:
         """
         mcp_tools = (await self.session.list_tools()).tools
 
-        # Combine MCP commands with those loaded from the JSON file
-        all_commands = [{t.name: t.description} for t in mcp_tools] + self.extra_commands
+        # Gerar a lista de ferramentas MCP no formato {nome: descrição}
+        formatted_mcp_tools = [{t.name: t.description} for t in mcp_tools]
+        
+        # Converter os comandos extras de dicionário para uma lista de dicionários no mesmo formato
+        # Assumimos que self.extra_commands é um dicionário como {"/comando": {"description": "..."}}
+        formatted_extra_commands = []
+        for cmd_name, cmd_details in self.extra_commands.items():
+            # A chave de t.name é apenas o nome do comando sem a barra (ex: "give" ao invés de "/give")
+            # Vamos manter a barra para que o prompt veja o comando como ele é.
+            formatted_extra_commands.append({cmd_name: cmd_details.get("description", "Comando personalizado.")})
 
-        # --- IMPROVED PROMPT ---
-        # Explicitly adds the player name to the main prompt.
+        # Agora ambas são listas de dicionários, e podem ser concatenadas
+        all_commands = formatted_mcp_tools + formatted_extra_commands
+
+        # --- SEU PROMPT SEGUE AQUI, SEM ALTERAÇÕES NESTA SEÇÃO ---
         prompt = f"""
 You are an AI assistant inside a Minecraft server. Your name is @ai.
 The player '{player}' sent the following message: "{message}"
 
-Your task is to interpret the player's intention and respond appropriately.
-You are the server admin and can execute Minecraft commands or respond as an NPC.
+Your task is to interpret the player's intent and respond appropriately.
+You are the server administrator and can execute Minecraft commands or reply as an NPC.
 Follow these rules:
-1.  **Always use the /say command for NPC responses**: All replies must be sent to the game chat using the `/say` command.
-2.  **Use Minecraft commands for actions**: If the player requests something involving in-game actions, use the available commands.
 
-1.  **If the message is a command request**: Analyze the available command list and generate the exact Minecraft command that fits the request. Reply ONLY with the command (e.g., /give {player} diamond 64).
-2.  **If the message is a general conversation or question**: Respond in a helpful and friendly way, like an NPC would. Use the `/say` command to send your response in the game chat (e.g., /say Hello, {player}! How can I help you today?).
+1. **Always use the /say command for NPC responses**: All replies must be sent to the in-game chat using the `/say` command.
+
+2. **Use Minecraft commands for actions**: If the player requests something involving in-game actions, use the appropriate available commands.
+
+3. **If the message is a command request**: Analyze the list of available commands and generate the exact Minecraft command that fits the request. Respond ONLY with the command (e.g., `/give {player} diamond 64`).
+
+4. **If the message is general conversation or a question**: Respond in a helpful and friendly way, as an NPC would. Use the `/say` command to send your reply to the in-game chat (e.g., `/say Hello, {player}! How can I help you today?`).
 
 Do not repeat the player's message in your response.
 
-When using a command, just output the command—do not reply to the user with anything else.
+When using a command, output only the command — do not include any other text.
 Any messages before the command may be ignored by the server.
 
 **Available commands:**
+
 {json.dumps(all_commands, indent=2, ensure_ascii=False)}
 """
 
@@ -156,8 +170,17 @@ Any messages before the command may be ignored by the server.
                 chat = self.process_log_line(line)
                 if chat:
                     player, message = chat
+
+                    # --- LINHAS DE DEBUGGING ---
+                    print(f"DEBUG_LOG: Linha de log processada: '{line.strip()}'")
+                    print(f"DEBUG_LOG: Player: '{player}', Mensagem: '{message}'")
+                    print(f"DEBUG_LOG: Mensagem em minúsculas: '{message.lower()}'")
+                    print(f"DEBUG_LOG: Começa com '@ai'?: {message.lower().startswith('@ai')}")
+                    # --- FIM DAS LINHAS DE DEBUGGING ---
+
                     if message.lower().startswith("@ai"):
                         query = message[3:].strip()
+                        print(f"DEBUG_LOG: Query extraída: '{query}'")
                         asyncio.create_task(self.handle_chat_command(player, query))
 
     async def cleanup(self):
@@ -181,19 +204,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\n🟡 Program interrupted by user.")
-
-# Example content for the commands.json file:
-# commands_dict = {
-#     "/help": {
-#         "description": "Displays all available commands or information about a specific command.",
-#         "example": "/help weather"
-#     },
-#     "/give": {
-#         "description": "Gives an item to a player. If omitted, gives a full stack.",
-#         "example": "/give iVestri iron_pickaxe 1"
-#     },
-#     "/weather": {
-#         "description": "Changes the world's weather (clear, rain, thunder).",
-#         "example": "/weather clear"
-#     }
-# }

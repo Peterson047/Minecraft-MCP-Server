@@ -8,7 +8,7 @@ PORT = 25575
 PASSWORD = "minemcp"
 
 def send_rcon(cmd: str) -> str:
-    """Envia comando via RCON."""
+    """Sending command by RCON."""
     with MCRcon(HOST, PASSWORD, port=PORT) as mcr:
         return mcr.command(cmd)
 
@@ -29,7 +29,7 @@ except json.JSONDecodeError:
 
 @mcp.tool()
 def run_command(command: str) -> str:
-    """Executa qualquer comando no servidor via RCON."""
+    """Executes any command on the server via RCON."""
     # O commands_dict pode ser usado aqui para validação,
     # ou para fornecer mais contexto à LLM sobre os comandos disponíveis.
     return send_rcon(command)

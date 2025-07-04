@@ -108,7 +108,7 @@ In `claude_desktop_config.json` (e.g., `%APPDATA%\Claude\`):
   "mcpServers": {
     "minecraft-controller": {
       "type": "stdio",
-      "command": "C:\\...\\venv\\Scripts\\python.exe",
+      "command": "/home/qkeq/Documentos/GitHub/Minecraft-MCP-Server/venv/bin/python3",
       "args": ["C:\\...\\mcp_server\\server.py"],
       "env": {"PATH": "%PATH%"}
     }
